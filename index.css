@@ -1,0 +1,28 @@
+*,
+*::before,
+*::after {
+    box-sizing: border-box;
+}
+
+html, body {
+    padding: 0;
+    margin: 0;
+    user-select: none;
+    /* pointer-events: all; */
+}
+
+main {
+    padding: 0;
+}
+
+code.key {
+    color: #daa520;
+}
+
+code.separator {
+    color: gray;
+}
+
+code.value {
+    color: magenta;
+}
