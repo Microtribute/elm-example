@@ -40,11 +40,28 @@ comparator s1 s2 =
             LT
 
 
-rank_ : List MedalStanding -> List MedalStanding
-rank_ =
-    List.sortBy sorter >> List.reverse
+diff : Order -> Order -> Int
+diff o1 o2 =
+    let
+        weight o =
+            case o of
+                EQ ->
+                    0
+
+                LT ->
+                    -1
+
+                GT ->
+                    1
+    in
+    weight o1 - weight o2
+
+
+comparator2 : MedalStanding -> MedalStanding -> Order
+comparator2 s1 s2 =
+    compare ( s1.gold, s1.silver, s1.bronze ) ( s2.gold, s2.silver, s2.bronze )
 
 
 rank : List MedalStanding -> List MedalStanding
 rank =
-    List.sortWith comparator >> List.reverse
+    List.sortWith comparator2 >> List.reverse

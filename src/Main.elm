@@ -3,7 +3,7 @@ module Main exposing (main)
 import Browser
 import Browser.Events exposing (onKeyDown, onMouseDown, onMouseMove, onMouseUp)
 import Html exposing (..)
-import Html.Attributes exposing (class, readonly, style, type_, value)
+import Html.Attributes exposing (class, disabled, readonly, style, type_, value)
 import Html.Events exposing (onClick, onInput, stopPropagationOn)
 import Html.Keyed as Keyed
 import Html.Lazy exposing (lazy)
@@ -12,6 +12,7 @@ import List
 import MedalStanding exposing (MedalStanding, rank)
 import Nanoid
 import Ports exposing (..)
+import Process
 import Random
 import Set
 import String.Ext
@@ -23,6 +24,7 @@ type Msg
     = GenerateRandomNumber
     | GotRandomNumber Int
     | PressedGenerateButton
+    | DelayRandomNumberGeneration Int
     | UpdateLower String
     | UpdateUpper String
     | CharacterKey Char
@@ -106,6 +108,7 @@ type alias Model =
 
     -- Medal Standings
     , medalStandings : List MedalStanding
+    , generationDelay : Maybe Int
     }
 
 
@@ -145,6 +148,7 @@ initialModel =
     , mousePosition = ( 0, 0 )
     , mouseMoveEnabled = False
     , medalStandings = []
+    , generationDelay = Nothing
     }
 
 
@@ -173,6 +177,11 @@ showNumber =
     destructMaybe "" String.fromInt
 
 
+isGenerating : Maybe Int -> Bool
+isGenerating =
+    (<) 0 << Maybe.withDefault 0
+
+
 view : Model -> Html Msg
 view model =
     main_ []
@@ -186,7 +195,8 @@ view model =
             , renderKeystrokeTester
             , renderRangeInput "Lower value: " model.lower UpdateLower
             , renderRangeInput "Upper value: " model.upper UpdateUpper
-            , button [ onClick PressedGenerateButton ] [ text "Generate" ]
+            , button [ disabled <| isGenerating model.generationDelay, onClick PressedGenerateButton ] [ text "Generate" ]
+            , renderGenerateWithDelayButton 10 model.generationDelay
             , renderOutput model
             ]
         , section []
@@ -323,6 +333,22 @@ renderMedalStandings medalStandings =
         ]
 
 
+renderGenerateWithDelayButton : Int -> Maybe Int -> Html Msg
+renderGenerateWithDelayButton delay maybe =
+    let
+        countdown =
+            Maybe.withDefault 0 maybe
+
+        ( attrs, caption ) =
+            if countdown < 1 then
+                ( [ onClick <| DelayRandomNumberGeneration delay ], "Generate with a delay of " ++ String.fromInt delay ++ " seconds" )
+
+            else
+                ( [ disabled True ], "Generating in " ++ String.fromInt countdown ++ " seconds" )
+    in
+    button attrs [ text caption ]
+
+
 
 -- List.map renderMedalStanding >> ol []
 
@@ -449,8 +475,8 @@ generateNewRandomNumber lower upper =
     Random.generate GotRandomNumber (Random.int lower upper)
 
 
-updateRange : Model -> RangeUpdate -> ( Model, Cmd Msg )
-updateRange currentModel ( newLower, newUpper ) =
+generateNumber : Model -> RangeUpdate -> ( Model, Cmd Msg )
+generateNumber currentModel ( newLower, newUpper ) =
     let
         model =
             { currentModel
@@ -458,7 +484,13 @@ updateRange currentModel ( newLower, newUpper ) =
                 , lower = newLower
             }
     in
-    ( model, generateNewRandomNumber model.lower model.upper )
+    ( model
+    , if isGenerating currentModel.generationDelay then
+        Cmd.none
+
+      else
+        generateNewRandomNumber model.lower model.upper
+    )
 
 
 uppercase : Char -> String
@@ -496,6 +528,11 @@ command =
     Task.perform identity << Task.succeed
 
 
+defer : Int -> Msg -> Cmd Msg
+defer delay msg =
+    delay |> toFloat |> Process.sleep |> Task.attempt (\_ -> msg)
+
+
 batch : List Msg -> Cmd Msg
 batch =
     Cmd.batch << List.map command
@@ -508,22 +545,43 @@ update msg model =
             ( { model | generatedBy = Just "clicking the \"Generate\" button" }, command GenerateRandomNumber )
 
         GenerateRandomNumber ->
-            updateRange model ( model.lower, model.upper )
+            generateNumber model ( model.lower, model.upper )
+
+        DelayRandomNumberGeneration delay ->
+            let
+                ( newModel, nextMsg ) =
+                    if delay > 0 then
+                        ( { model
+                            | generationDelay = Just delay
+                            , generatedBy = Just "waiting"
+                          }
+                        , defer 1000 <| DelayRandomNumberGeneration (delay - 1)
+                        )
+
+                    else
+                        ( { model
+                            | generationDelay = Nothing
+                            , generatedBy = Just "delayed generation"
+                          }
+                        , command GenerateRandomNumber
+                        )
+            in
+            ( newModel, nextMsg )
 
         GotRandomNumber number ->
             ( { model | integer = Just number }, Ports.setLocalStorage ( "number", Just (String.fromInt number) ) )
 
         UpdateUpper upper ->
-            updateRange { model | generatedBy = Just "updating upper value" } ( model.lower, makePositive upper )
+            generateNumber { model | generatedBy = Just "updating upper value" } ( model.lower, makePositive upper )
 
         UpdateLower lower ->
-            updateRange { model | generatedBy = Just "updating lower value" } ( makePositive lower, model.upper )
+            generateNumber { model | generatedBy = Just "updating lower value" } ( makePositive lower, model.upper )
 
         ControlKey controlKey ->
-            updateRange { model | generatedBy = Just ("pressing the " ++ controlKey ++ " key") } ( model.lower, model.upper )
+            generateNumber { model | generatedBy = Just ("pressing the " ++ controlKey ++ " key") } ( model.lower, model.upper )
 
         CharacterKey key ->
-            updateRange { model | generatedBy = Just ("pressing the " ++ uppercase key ++ " key") } ( model.lower, model.upper )
+            generateNumber { model | generatedBy = Just ("pressing the " ++ uppercase key ++ " key") } ( model.lower, model.upper )
 
         GenerateNanoid ->
             ( model, Random.generate GotNanoid Nanoid.generator )
@@ -589,7 +647,7 @@ update msg model =
         RequestFullLocalStorage ->
             ( model, Ports.getAllLocalStorage () )
 
-        GotFullLocalStorage all ->
+        GotFullLocalStorage _ ->
             ( model, Cmd.none )
 
         RandomizeMedalStandings ->
