@@ -200,8 +200,28 @@ showSeconds n =
     String.fromInt n ++ " " ++ noun
 
 
+integerKey : String
+integerKey =
+    "integer"
+
+
+nanoidKey : String
+nanoidKey =
+    "nanoid"
+
+
+uuidKey : String
+uuidKey =
+    "uuid"
+
+
 view : Model -> Html Msg
 view model =
+    let
+        getCountdown : String -> Maybe Int
+        getCountdown key =
+            Dict.get key model.delays
+    in
     main_ []
         [ section []
             [ h1 [] [ text "Medal Standings" ]
@@ -213,15 +233,15 @@ view model =
             , renderKeystrokeTester
             , renderRangeInput "Lower value: " model.lower UpdateLower
             , renderRangeInput "Upper value: " model.upper UpdateUpper
-            , button [ disabled <| isGenerating model.generationDelay, onClick PressedGenerateButton ] [ text "Generate" ]
-            , Dict.get "integer" model.delays |> delayedButton "integer" 5 (GenerateRandomNumber "executing \"integer\"")
+            , button [ disabled <| isGenerating (Dict.get "integer" model.delays), onClick PressedGenerateButton ] [ text "Generate" ]
+            , delayedButton integerKey 5 (GenerateRandomNumber "executing \"integer\"") <| getCountdown integerKey
             , renderOutput model
             ]
         , section []
             [ h1 [] [ text "Nanoid Generation" ]
             , div []
                 [ button [ onClick GenerateNanoid ] [ text "Generate" ]
-                , Dict.get "nanoid" model.delays |> delayedButton "nanoid" 8 GenerateNanoid
+                , delayedButton nanoidKey 8 GenerateNanoid <| getCountdown nanoidKey
                 ]
             , div []
                 [ code [] [ text (showNanoid model.nanoid) ] ]
@@ -230,7 +250,7 @@ view model =
             [ h1 [] [ text "UUID Generation" ]
             , div []
                 [ button [ onClick GenerateUuid ] [ text "Generate" ]
-                , Dict.get "uuid" model.delays |> delayedButton "uuid" 10 GenerateUuid
+                , delayedButton uuidKey 10 GenerateUuid <| getCountdown uuidKey
                 ]
             , div []
                 [ code [] [ text (showUUID model.uuid) ] ]
@@ -538,6 +558,13 @@ command =
 defer : Int -> Msg -> Cmd Msg
 defer delay msg =
     delay |> toFloat |> Process.sleep |> Task.attempt (\_ -> msg)
+
+
+{-| Same as the `command` function but in a different approach
+-}
+command1 : Msg -> Cmd Msg
+command1 msg =
+    Task.attempt (\_ -> msg) <| Task.succeed ()
 
 
 batch : List Msg -> Cmd Msg
