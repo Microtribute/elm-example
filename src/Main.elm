@@ -2,6 +2,7 @@ module Main exposing (main)
 
 import Browser
 import Browser.Events exposing (onKeyDown, onMouseDown, onMouseMove, onMouseUp)
+import Dict exposing (Dict)
 import Html exposing (..)
 import Html.Attributes exposing (class, disabled, readonly, style, type_, value)
 import Html.Events exposing (onClick, onInput, stopPropagationOn)
@@ -15,16 +16,16 @@ import Ports exposing (..)
 import Process
 import Random
 import Set
-import String.Ext
 import Task
 import UUID exposing (UUID)
 
 
 type Msg
-    = GenerateRandomNumber
+    = NoOp
+    | GenerateRandomNumber String
     | GotRandomNumber Int
     | PressedGenerateButton
-    | DelayRandomNumberGeneration Int
+    | DelayAction String Int Msg
     | UpdateLower String
     | UpdateUpper String
     | CharacterKey Char
@@ -42,7 +43,6 @@ type Msg
     | ToggleMouseMoveSetting
     | RandomizeMedalStandings
     | GotMedals (List Int)
-    | NoOp
 
 
 type alias RangeUpdate =
@@ -57,6 +57,7 @@ attendingCountries : List String
 attendingCountries =
     [ "China"
     , "Taiwan"
+    , "Hong Kong"
     , "Iran"
     , "Kazakhstan"
     , "Cambodia"
@@ -108,7 +109,10 @@ type alias Model =
 
     -- Medal Standings
     , medalStandings : List MedalStanding
+
+    -- keep generation delay
     , generationDelay : Maybe Int
+    , delays : Dict String Int
     }
 
 
@@ -149,6 +153,7 @@ initialModel =
     , mouseMoveEnabled = False
     , medalStandings = []
     , generationDelay = Nothing
+    , delays = Dict.empty
     }
 
 
@@ -182,6 +187,19 @@ isGenerating =
     (<) 0 << Maybe.withDefault 0
 
 
+showSeconds : Int -> String
+showSeconds n =
+    let
+        noun =
+            if n > 1 then
+                "seconds"
+
+            else
+                "second"
+    in
+    String.fromInt n ++ " " ++ noun
+
+
 view : Model -> Html Msg
 view model =
     main_ []
@@ -196,18 +214,24 @@ view model =
             , renderRangeInput "Lower value: " model.lower UpdateLower
             , renderRangeInput "Upper value: " model.upper UpdateUpper
             , button [ disabled <| isGenerating model.generationDelay, onClick PressedGenerateButton ] [ text "Generate" ]
-            , renderGenerateWithDelayButton 10 model.generationDelay
+            , Dict.get "integer" model.delays |> delayedButton "integer" 5 (GenerateRandomNumber "executing \"integer\"")
             , renderOutput model
             ]
         , section []
             [ h1 [] [ text "Nanoid Generation" ]
-            , div [] [ button [ onClick GenerateNanoid ] [ text "Generate" ] ]
+            , div []
+                [ button [ onClick GenerateNanoid ] [ text "Generate" ]
+                , Dict.get "nanoid" model.delays |> delayedButton "nanoid" 8 GenerateNanoid
+                ]
             , div []
                 [ code [] [ text (showNanoid model.nanoid) ] ]
             ]
         , section []
             [ h1 [] [ text "UUID Generation" ]
-            , div [] [ button [ onClick GenerateUuid ] [ text "Generate" ] ]
+            , div []
+                [ button [ onClick GenerateUuid ] [ text "Generate" ]
+                , Dict.get "uuid" model.delays |> delayedButton "uuid" 10 GenerateUuid
+                ]
             , div []
                 [ code [] [ text (showUUID model.uuid) ] ]
             ]
@@ -333,24 +357,30 @@ renderMedalStandings medalStandings =
         ]
 
 
-renderGenerateWithDelayButton : Int -> Maybe Int -> Html Msg
-renderGenerateWithDelayButton delay maybe =
+delayedButton : String -> Int -> Msg -> Maybe Int -> Html Msg
+delayedButton key delay msg countdown =
     let
-        countdown =
-            Maybe.withDefault 0 maybe
+        _ =
+            Debug.log "rendering button" <|
+                key
+                    ++ ", "
+                    ++ String.fromInt delay
+                    ++ ", "
+                    ++ String.fromInt (Maybe.withDefault 0 countdown)
 
         ( attrs, caption ) =
-            if countdown < 1 then
-                ( [ onClick <| DelayRandomNumberGeneration delay ], "Generate with a delay of " ++ String.fromInt delay ++ " seconds" )
+            case countdown of
+                Nothing ->
+                    ( [ onClick <| DelayAction key delay msg ]
+                    , "Execute \"" ++ key ++ "\" with a delay of " ++ showSeconds delay
+                    )
 
-            else
-                ( [ disabled True ], "Generating in " ++ String.fromInt countdown ++ " seconds" )
+                Just c ->
+                    ( [ disabled True ]
+                    , "Executing \"" ++ key ++ "\" in " ++ showSeconds c
+                    )
     in
     button attrs [ text caption ]
-
-
-
--- List.map renderMedalStanding >> ol []
 
 
 renderRangeInput : String -> Int -> (String -> Msg) -> Html Msg
@@ -384,32 +414,9 @@ renderKeystrokeTester =
         ]
 
 
-unique : List a -> List a
-unique l =
-    let
-        incUnique : a -> List a -> List a
-        incUnique elem lst =
-            if List.member elem lst then
-                lst
-
-            else
-                elem :: lst
-    in
-    List.foldr incUnique [] l
-
-
 unique2 : List comparable -> List comparable
 unique2 =
     Set.fromList >> Set.toList
-
-
-getPreventingKeys : String -> List Char
-getPreventingKeys str =
-    String.split "|" str
-        |> List.map String.trim
-        |> List.map String.Ext.toChar
-        |> List.map (Maybe.withDefault ' ')
-        |> unique2
 
 
 stopBubblingOnKeystrokes : List Char -> Json.Decode.Decoder ( Msg, Bool )
@@ -542,31 +549,19 @@ update : Msg -> Model -> ( Model, Cmd Msg )
 update msg model =
     case msg of
         PressedGenerateButton ->
-            ( { model | generatedBy = Just "clicking the \"Generate\" button" }, command GenerateRandomNumber )
+            ( model, command (GenerateRandomNumber "clicking the \"Generate\" button") )
 
-        GenerateRandomNumber ->
-            generateNumber model ( model.lower, model.upper )
+        GenerateRandomNumber cause ->
+            generateNumber { model | generatedBy = Just cause } ( model.lower, model.upper )
 
-        DelayRandomNumberGeneration delay ->
-            let
-                ( newModel, nextMsg ) =
-                    if delay > 0 then
-                        ( { model
-                            | generationDelay = Just delay
-                            , generatedBy = Just "waiting"
-                          }
-                        , defer 1000 <| DelayRandomNumberGeneration (delay - 1)
-                        )
+        DelayAction key delay action ->
+            if delay > 1 then
+                ( { model | delays = Dict.insert key (delay - 1) model.delays }
+                , defer 1000 <| DelayAction key (delay - 1) action
+                )
 
-                    else
-                        ( { model
-                            | generationDelay = Nothing
-                            , generatedBy = Just "delayed generation"
-                          }
-                        , command GenerateRandomNumber
-                        )
-            in
-            ( newModel, nextMsg )
+            else
+                ( { model | delays = Dict.remove key model.delays }, command action )
 
         GotRandomNumber number ->
             ( { model | integer = Just number }, Ports.setLocalStorage ( "number", Just (String.fromInt number) ) )
@@ -635,7 +630,11 @@ update msg model =
                         model.generatedBy
               }
             , if moved then
-                batch [ GenerateNanoid, GenerateRandomNumber, GenerateUuid ]
+                let
+                    cause =
+                        "mouse move"
+                in
+                batch [ GenerateNanoid, GenerateRandomNumber cause, GenerateUuid ]
 
               else
                 Cmd.none
