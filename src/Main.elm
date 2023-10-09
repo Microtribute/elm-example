@@ -10,12 +10,11 @@ import Html.Keyed as Keyed
 import Html.Lazy exposing (lazy)
 import Json.Decode
 import List
-import MedalStanding exposing (MedalStanding, rank)
+import MedalStanding exposing (MedalStanding, populateMedalStandings)
 import Nanoid
 import Ports exposing (..)
 import Process
 import Random
-import Set
 import Task
 import UUID exposing (UUID)
 
@@ -42,7 +41,7 @@ type Msg
     | GotFullLocalStorage (List LocalStorageKeyValue)
     | ToggleMouseMoveSetting
     | RandomizeMedalStandings
-    | GotMedals (List Int)
+    | GotMedalStandings (List MedalStanding)
 
 
 type alias RangeUpdate =
@@ -51,37 +50,6 @@ type alias RangeUpdate =
 
 type alias Coord2D =
     ( Int, Int )
-
-
-attendingCountries : List String
-attendingCountries =
-    [ "China"
-    , "Taiwan"
-    , "Hong Kong"
-    , "Iran"
-    , "Kazakhstan"
-    , "Cambodia"
-    , "Nepal"
-    , "Vietnam"
-    , "Tajikistan"
-    , "Japan"
-    , "India"
-    , "Jordan"
-    , "Malaysia"
-    , "Bangladesh"
-    , "Armenia"
-    , "Sri Lanka"
-    , "Saudi Arabia"
-    , "Kuwait"
-    , "Mongolia"
-    , "Afghanistan"
-    , "Armenia"
-    , "Bahrain"
-    , "Bhutan"
-    , "Philippines"
-    , "Indonesia"
-    , "Australia"
-    ]
 
 
 type alias Model =
@@ -121,13 +89,6 @@ init () =
     ( initialModel
     , initialize
     )
-
-
-randomizeStandingsMedals : Cmd Msg
-randomizeStandingsMedals =
-    Random.int 0 100
-        |> Random.list (3 * List.length attendingCountries)
-        |> Random.generate GotMedals
 
 
 initialize : Cmd Msg
@@ -434,11 +395,6 @@ renderKeystrokeTester =
         ]
 
 
-unique2 : List comparable -> List comparable
-unique2 =
-    Set.fromList >> Set.toList
-
-
 stopBubblingOnKeystrokes : List Char -> Json.Decode.Decoder ( Msg, Bool )
 stopBubblingOnKeystrokes chars =
     let
@@ -677,39 +633,13 @@ update msg model =
             ( model, Cmd.none )
 
         RandomizeMedalStandings ->
-            ( model, randomizeStandingsMedals )
+            ( model, Random.generate (populateMedalStandings >> GotMedalStandings) (Random.int Random.minInt Random.maxInt) )
 
-        GotMedals medals ->
-            ( { model | medalStandings = distributeMedalsToCountries medals |> rank }, Cmd.none )
+        GotMedalStandings medalStandings ->
+            ( { model | medalStandings = medalStandings }, Cmd.none )
 
         NoOp ->
             ( model, Cmd.none )
-
-
-distributeMedalsToCountries : List Int -> List MedalStanding
-distributeMedalsToCountries medals =
-    let
-        walk : List Int -> List String -> List MedalStanding -> List MedalStanding
-        walk medals_ countries_ result =
-            case countries_ of
-                [] ->
-                    result
-
-                country :: otherCountries ->
-                    case medals_ of
-                        x :: y :: z :: otherMedals ->
-                            walk otherMedals otherCountries (MedalStanding country x y z :: result)
-
-                        [ x, y ] ->
-                            walk [] otherCountries (MedalStanding country x y 0 :: result)
-
-                        [ x ] ->
-                            walk [] otherCountries (MedalStanding country x 0 0 :: result)
-
-                        _ ->
-                            walk [] otherCountries (MedalStanding country 0 0 0 :: result)
-    in
-    walk medals attendingCountries []
 
 
 isMovedEnough : Model -> Bool
