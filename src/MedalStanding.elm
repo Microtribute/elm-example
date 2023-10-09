@@ -4,6 +4,7 @@ module MedalStanding exposing
     , populateMedalStandings2
     , populateMedalStandings3
     , populateMedalStandings4
+    , populateMedalStandings5
     )
 
 import Random
@@ -53,11 +54,16 @@ attendingCountries =
 @deprecated
 
 -}
-sortHelperByStringifying : MedalStanding -> String
-sortHelperByStringifying { gold, silver, bronze } =
+toComparable : MedalStanding -> String
+toComparable { gold, silver, bronze } =
     [ gold, silver, bronze ]
         |> List.map (String.fromInt >> String.padLeft 16 '0')
         |> String.join ""
+
+
+keyComparator : MedalStanding -> MedalStanding -> Order
+keyComparator s1 s2 =
+    compare (toComparable s1) (toComparable s2)
 
 
 traditionalComparator : MedalStanding -> MedalStanding -> Order
@@ -84,6 +90,18 @@ traditionalComparator s1 s2 =
             LT
 
 
+ifComparator : MedalStanding -> MedalStanding -> Order
+ifComparator s1 s2 =
+    if s1.gold == s2.gold && s1.silver == s2.silver && s1.bronze == s2.bronze then
+        EQ
+
+    else if s1.gold > s2.gold || (s1.gold == s2.gold && s1.silver > s2.silver) || (s1.gold == s2.gold && s1.silver == s2.silver && s1.bronze > s2.bronze) then
+        GT
+
+    else
+        LT
+
+
 defaultComparator : MedalStanding -> MedalStanding -> Order
 defaultComparator s1 s2 =
     compare ( s1.gold, s1.silver, s1.bronze ) ( s2.gold, s2.silver, s2.bronze )
@@ -92,11 +110,6 @@ defaultComparator s1 s2 =
 listComparator : MedalStanding -> MedalStanding -> Order
 listComparator s1 s2 =
     compare [ s1.gold, s1.silver, s1.bronze ] [ s2.gold, s2.silver, s2.bronze ]
-
-
-rank : List MedalStanding -> List MedalStanding
-rank =
-    List.sortWith defaultComparator >> List.reverse
 
 
 distributeMedalsToCountries : List Int -> List MedalStanding
@@ -156,45 +169,40 @@ seedRandomNumbers2 seed size =
         |> Tuple.first
 
 
-populateMedalStandings : Int -> List MedalStanding
-populateMedalStandings n =
+generateAndApplySorter : (MedalStanding -> MedalStanding -> Order) -> Int -> List MedalStanding
+generateAndApplySorter sorter n =
     3
         * List.length attendingCountries
         |> seedRandomNumbers2 n
         |> distributeMedalsToCountries
-        |> List.sortWith defaultComparator
+        |> List.sortWith sorter
         |> List.reverse
+
+
+populateMedalStandings : Int -> List MedalStanding
+populateMedalStandings =
+    generateAndApplySorter defaultComparator
 
 
 populateMedalStandings2 : Int -> List MedalStanding
-populateMedalStandings2 n =
-    3
-        * List.length attendingCountries
-        |> seedRandomNumbers n
-        |> distributeMedalsToCountries
-        |> List.sortWith traditionalComparator
-        |> List.reverse
+populateMedalStandings2 =
+    generateAndApplySorter traditionalComparator
 
 
 populateMedalStandings3 : Int -> List MedalStanding
-populateMedalStandings3 n =
-    3
-        * List.length attendingCountries
-        |> seedRandomNumbers n
-        |> distributeMedalsToCountries
-        |> List.sortBy sortHelperByStringifying
-        |> List.reverse
+populateMedalStandings3 =
+    generateAndApplySorter keyComparator
 
 
 populateMedalStandings4 : Int -> List MedalStanding
-populateMedalStandings4 n =
-    3
-        * List.length attendingCountries
-        |> seedRandomNumbers n
-        |> distributeMedalsToCountries
-        |> List.sortWith listComparator
-        |> List.reverse
+populateMedalStandings4 =
+    generateAndApplySorter listComparator
 
+
+
+populateMedalStandings5 : Int -> List MedalStanding
+populateMedalStandings5 =
+    generateAndApplySorter ifComparator
 
 
 -- newMedalStandings : (List MedalStanding -> msg) -> Cmd msg
