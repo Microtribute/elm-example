@@ -5,6 +5,7 @@ module MedalStanding exposing
     , populateMedalStandings3
     , populateMedalStandings4
     , populateMedalStandings5
+    , populateMedalStandings6
     )
 
 import Random
@@ -169,10 +170,25 @@ seedRandomNumbers2 seed size =
         |> Tuple.first
 
 
+totalMedalSlots : Int
+totalMedalSlots =
+    -- 3 here because there are 3 classes of medals:
+    -- gold, silver, and bronze
+    3 * List.length attendingCountries
+
+
 generateAndApplySorter : (MedalStanding -> MedalStanding -> Order) -> Int -> List MedalStanding
 generateAndApplySorter sorter n =
-    3
-        * List.length attendingCountries
+    totalMedalSlots
+        |> seedRandomNumbers n
+        |> distributeMedalsToCountries
+        |> List.sortWith sorter
+        |> List.reverse
+
+
+generateAndApplySorter2 : (MedalStanding -> MedalStanding -> Order) -> Int -> List MedalStanding
+generateAndApplySorter2 sorter n =
+    totalMedalSlots
         |> seedRandomNumbers2 n
         |> distributeMedalsToCountries
         |> List.sortWith sorter
@@ -199,10 +215,15 @@ populateMedalStandings4 =
     generateAndApplySorter listComparator
 
 
-
 populateMedalStandings5 : Int -> List MedalStanding
 populateMedalStandings5 =
     generateAndApplySorter ifComparator
+
+
+populateMedalStandings6 : Int -> List MedalStanding
+populateMedalStandings6 =
+    generateAndApplySorter2 ifComparator
+
 
 
 -- newMedalStandings : (List MedalStanding -> msg) -> Cmd msg

@@ -8,6 +8,7 @@ import MedalStanding
         , populateMedalStandings3
         , populateMedalStandings4
         , populateMedalStandings5
+        , populateMedalStandings6
         )
 
 
@@ -28,6 +29,9 @@ suite =
 
         method5 =
             \() -> populateMedalStandings5 100
+
+        method6 =
+            \() -> populateMedalStandings6 100
     in
     describe "Medal Standings"
         [ -- nest as many descriptions as you like
@@ -37,5 +41,6 @@ suite =
             , benchmark "populateMedalStandings3" method3
             , benchmark "populateMedalStandings4" method4
             , benchmark "populateMedalStandings5" method5
+            , benchmark "populateMedalStandings6" method6
             ]
         ]
