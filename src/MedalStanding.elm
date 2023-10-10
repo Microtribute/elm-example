@@ -50,11 +50,6 @@ attendingCountries =
     ]
 
 
-{-| Not used
-
-@deprecated
-
--}
 toComparable : MedalStanding -> String
 toComparable { gold, silver, bronze } =
     [ gold, silver, bronze ]
