@@ -91,7 +91,11 @@ ifComparator s1 s2 =
     if s1.gold == s2.gold && s1.silver == s2.silver && s1.bronze == s2.bronze then
         EQ
 
-    else if s1.gold > s2.gold || (s1.gold == s2.gold && s1.silver > s2.silver) || (s1.gold == s2.gold && s1.silver == s2.silver && s1.bronze > s2.bronze) then
+    else if
+        (s1.gold > s2.gold)
+            || (s1.gold == s2.gold && s1.silver > s2.silver)
+            || (s1.gold == s2.gold && s1.silver == s2.silver && s1.bronze > s2.bronze)
+    then
         GT
 
     else
