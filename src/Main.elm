@@ -17,6 +17,8 @@ import Process
 import Random
 import Task
 import UUID exposing (UUID)
+import Prime exposing (isPrime)
+import Random exposing (maxInt)
 
 
 type Msg
@@ -80,6 +82,8 @@ type alias Model =
 
     -- keep generation delay
     , generationDelay : Maybe Int
+    
+    -- Delays for delayed actions
     , delays : Dict String Int
     }
 
@@ -175,6 +179,14 @@ uuidKey : String
 uuidKey =
     "uuid"
 
+renderPrimeNumbers : Html Msg
+renderPrimeNumbers =
+    List.range 0 30000
+        |> List.filter isPrime
+        |> List.map String.fromInt
+        |> String.join ", "
+        |> text
+
 
 view : Model -> Html Msg
 view model =
@@ -239,6 +251,10 @@ view model =
         , section []
             [ h1 [] [ text "What's in localStorage?" ]
             , renderLocalStorage model
+            ]
+        , section []
+            [ h1 [] [ text "Prime Numbers" ]
+            , renderPrimeNumbers
             ]
         ]
 
@@ -427,8 +443,10 @@ renderOutput model =
                 ]
 
         Just cause ->
+            let integer = Maybe.withDefault 0 model.integer in
             div []
-                [ strong [] [ text (String.fromInt <| Maybe.withDefault 0 model.integer) ]
+                [ text <| "A " ++ ( if isPrime integer then "prime" else "composite" ) ++ " number "
+                , strong [] [ text (String.fromInt <| Maybe.withDefault 0 model.integer) ]
                 , span
                     [ style "color" "red"
                     , style "font-weight" "bold"
