@@ -181,11 +181,10 @@ uuidKey =
 
 renderPrimeNumbers : Html Msg
 renderPrimeNumbers =
-    List.range 0 30000
+    List.range 0 50000
         |> List.filter isPrime
-        |> List.map String.fromInt
-        |> String.join ", "
-        |> text
+        |> List.map (String.fromInt >> String.padLeft 5 (Char.fromCode 160) >> text >> List.singleton >> code [ style "background-color" "yellow" ])
+        |> div [ style "display" "flex", style "flex-wrap" "wrap", style "gap" "5px", style "justify-content" "flex-start" ]
 
 
 view : Model -> Html Msg
