@@ -1,4 +1,9 @@
-module FileName exposing (..)
+module FileName exposing
+    ( fromString
+    , setBaseName
+    , setExtension
+    , toString
+    )
 
 
 type FileName
