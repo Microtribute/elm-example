@@ -1,5 +1,6 @@
 module FileName exposing
-    ( fromString
+    ( FileName
+    , fromString
     , getBaseName
     , getExtension
     , hasExtension
