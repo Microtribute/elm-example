@@ -38,14 +38,10 @@ fromString rawFileName =
 
 toString : FileName -> String
 toString (FileName baseName extension) =
-    baseName
-        ++ (case extension of
-                Nothing ->
-                    ""
-
-                Just ext ->
-                    "." ++ ext
-           )
+    extension
+        |> Maybe.map ((++) ".")
+        |> Maybe.withDefault ""
+        |> (++) baseName
 
 
 setExtension : FileName -> Maybe String -> FileName
