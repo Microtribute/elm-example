@@ -1,5 +1,8 @@
 module FileName exposing
     ( fromString
+    , getBaseName
+    , getExtension
+    , hasExtension
     , setBaseName
     , setExtension
     , toString
@@ -54,3 +57,23 @@ setExtension extension (FileName baseName _) =
 setBaseName : String -> FileName -> FileName
 setBaseName baseName (FileName _ extension) =
     FileName baseName extension
+
+
+getBaseName : FileName -> String
+getBaseName (FileName baseName _) =
+    baseName
+
+
+getExtension : FileName -> Maybe String
+getExtension (FileName _ extension) =
+    extension
+
+
+hasExtension : FileName -> Bool
+hasExtension (FileName _ extension) =
+    case extension of
+        Just _ ->
+            True
+
+        Nothing ->
+            False
