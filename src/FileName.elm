@@ -44,13 +44,13 @@ toString (FileName baseName extension) =
         |> (++) baseName
 
 
-setExtension : FileName -> Maybe String -> FileName
-setExtension (FileName baseName _) extension =
+setExtension : Maybe String -> FileName -> FileName
+setExtension extension (FileName baseName _) =
     extension
         |> Maybe.map (String.replace "." "")
         |> FileName baseName
 
 
-setBaseName : FileName -> String -> FileName
-setBaseName (FileName _ extension) baseName =
+setBaseName : String -> FileName -> FileName
+setBaseName baseName (FileName _ extension) =
     FileName baseName extension
