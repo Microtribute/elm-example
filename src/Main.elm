@@ -18,7 +18,6 @@ import Random
 import Task
 import UUID exposing (UUID)
 import Prime exposing (isPrime)
-import Random exposing (maxInt)
 
 
 type Msg
@@ -69,7 +68,7 @@ type alias Model =
     , generatedBy : Maybe String
 
     -- Mouse click position
-    , mouseClickedAt : Maybe Coord2D
+    , mouseClickPosition : Maybe Coord2D
 
     -- Realtime position of mouse
     , mousePosition : Coord2D
@@ -113,7 +112,7 @@ initialModel =
     , generatedBy = Nothing
     , nanoid = Nothing
     , uuid = Nothing
-    , mouseClickedAt = Nothing
+    , mouseClickPosition = Nothing
     , mousePosition = ( 0, 0 )
     , mouseMoveEnabled = False
     , medalStandings = []
@@ -189,11 +188,10 @@ renderPrimeNumber =
 
 renderPrimeNumbers : Html Msg
 renderPrimeNumbers =
-    List.range 0 100000
+    List.range 0 3000
         |> List.filter isPrime
         |> List.map renderPrimeNumber
         |> div [ style "display" "flex", style "flex-wrap" "wrap", style "gap" "5px", style "justify-content" "flex-start" ]
-
 
 view : Model -> Html Msg
 view model =
@@ -243,7 +241,7 @@ view model =
         , section []
             [ h1 [] [ text "Event" ]
             , div []
-                [ span [] [ renderMouseClickPosition model.mouseClickedAt ]
+                [ span [] [ renderMouseClickPosition model.mouseClickPosition ]
                 , strong [] [ text "Moved Enough: " ]
                 , code []
                     [ text <|
@@ -264,7 +262,6 @@ view model =
             , renderPrimeNumbers
             ]
         ]
-
 
 renderMouseClickPosition : Maybe Coord2D -> Html Msg
 renderMouseClickPosition pos =
@@ -618,7 +615,7 @@ update msg model =
             ( model, Cmd.none )
 
         MouseDown pos ->
-            ( { model | mouseClickedAt = Just pos }, Cmd.none )
+            ( { model | mouseClickPosition = Just pos }, Cmd.none )
 
         MouseMove pos ->
             ( { model | mousePosition = pos }, Cmd.none )
@@ -629,7 +626,7 @@ update msg model =
                     model.mouseMoveEnabled && isMovedEnough model
             in
             ( { model
-                | mouseClickedAt = Nothing
+                | mouseClickPosition = Nothing
                 , generatedBy =
                     if moved then
                         Just "mouse move"
@@ -668,10 +665,10 @@ update msg model =
 
 
 isMovedEnough : Model -> Bool
-isMovedEnough { mouseClickedAt, mousePosition } =
+isMovedEnough { mouseClickPosition, mousePosition } =
     let
         ( x1, y1 ) =
-            Maybe.withDefault mousePosition mouseClickedAt
+            Maybe.withDefault mousePosition mouseClickPosition
 
         ( x2, y2 ) =
             mousePosition
